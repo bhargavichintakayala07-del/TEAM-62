@@ -24,6 +24,8 @@ It understands medical documents, remembers patient history, analyzes symptoms, 
 
 ⚠️ Responsible AI – Guidance only, not diagnosis
 
+⏰ Medical Reminders – Sends simple notifications at medication times and scheduled checkup dates.
+
 🛠️ Technology Stack
 
 Frontend: HTML, CSS, JavaScript
