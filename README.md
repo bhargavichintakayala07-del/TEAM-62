@@ -4,10 +4,12 @@
 
 Patients struggle to understand complex medical reports, symptoms, and treatment-related information. Most digital healthcare tools lack reliability, personalization, and long-term patient history awareness.
 
+
  Solution - 
 
 Medico Assistant is an Agentic AI-powered healthcare companion that uses Retrieval-Augmented Generation (RAG), multimodal understanding, and ML-based risk analysis to provide safe, accurate, and personalized medical guidance.
 It understands medical documents, remembers patient history, analyzes symptoms, and supports informed healthcare decisions.
+
 
  Key Features - 
 
@@ -27,6 +29,7 @@ It understands medical documents, remembers patient history, analyzes symptoms, 
 
  8.Medical Reminders – Sends simple notifications at medication times and scheduled checkup dates.
 
+
  Technology Stack -
 
 Frontend: HTML, CSS, JavaScript
@@ -39,9 +42,11 @@ Vector Database: FAISS / ChromaDB
 
 Data Sources: Verified medical datasets
 
+
  System Overview - 
 
 User Input → Multimodal Processing → RAG Retrieval → Agentic Reasoning + ML Risk Analysis → Personalized Guidance
+
 
  Use Cases -
 
