@@ -94,12 +94,6 @@ Feel free to fork this repository, submit issues, or open pull requests.
 
 ---
 
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
----
-
 ## 🙌 Acknowledgements
 
 Inspired by real-world healthcare challenges and advancements in **Agentic AI**, **Generative AI**, and **Medical AI Systems**.
