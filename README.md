@@ -1,99 +1,51 @@
-# 🏥 Agentic AI Healthcare Assistant
+🩺 Medico Assistant – Agentic AI Healthcare Companion
+📌 Problem Statement
 
-## 📌 Problem Statement
+Patients struggle to understand complex medical reports, symptoms, and treatment-related information. Most digital healthcare tools lack reliability, personalization, and long-term patient history awareness.
 
-Patients often struggle to interpret complex medical reports, understand their symptoms, and identify appropriate treatment options. Existing digital healthcare tools lack medical reliability, true personalization, and the ability to retain and learn from a patient’s historical medical data.
+💡 Solution
 
-## 💡 Proposed Solution
+Medico Assistant is an Agentic AI-powered healthcare companion that uses Retrieval-Augmented Generation (RAG), multimodal understanding, and ML-based risk analysis to provide safe, accurate, and personalized medical guidance.
+It understands medical documents, remembers patient history, analyzes symptoms, and supports informed healthcare decisions.
 
-To address these challenges, we propose an **Agentic AI Healthcare Assistant** that leverages **Retrieval-Augmented Generation (RAG)**, **multimodal understanding**, and **machine learning–based risk analysis** to provide **safe, accurate, and personalized medical guidance**.
+🚀 Key Features
 
-The system acts as an intelligent healthcare companion that understands medical documents, remembers patient history, analyzes symptoms, and assists users in making informed healthcare decisions.
+📄 Medical Report Explanation – Simplifies lab reports & prescriptions
 
----
+🧠 Patient History Memory – Learns from past reports & interactions
 
-## 🚀 Key Features
+🔍 Trusted Medical Knowledge (RAG) – Retrieves verified medical data
 
-- 📄 **Medical Report Interpretation**  
-  Upload lab reports or prescriptions and receive easy-to-understand explanations.
+🖼️ Multimodal Support – Text, PDFs, and medical documents
 
-- 🧠 **Patient History Memory**  
-  Maintains past reports, symptoms, and interactions for personalized guidance.
+📊 Health Risk Analysis – ML-based symptom & report pattern analysis
 
-- 🔍 **RAG-Based Medical Knowledge Retrieval**  
-  Retrieves verified medical information from trusted sources to ensure reliability.
+💬 Conversational Interface – Simple, user-friendly chat
 
-- 🖼️ **Multimodal Understanding**  
-  Supports text and medical document inputs (images/PDFs).
+⚠️ Responsible AI – Guidance only, not diagnosis
 
-- 📊 **ML-Driven Risk Analysis**  
-  Analyzes symptoms and report patterns to estimate potential health risks.
+🛠️ Technology Stack
 
-- 💬 **Conversational AI Interface**  
-  Simple, user-friendly chat experience for patients of all backgrounds.
+Frontend: HTML, CSS, JavaScript
 
-- ⚠️ **Safe & Responsible AI**  
-  Provides guidance, not diagnoses; encourages professional medical consultation when required.
+Backend: Python (FastAPI / Flask)
 
----
+AI & ML: LLMs, RAG, Risk Prediction Models
 
-## 🛠️ Technology Stack
+Vector Database: FAISS / ChromaDB
 
-- **Frontend:** HTML, CSS, JavaScript  
-- **Backend:** Python (FastAPI / Flask)  
-- **AI & ML:**  
-  - Large Language Models (LLMs)  
-  - Retrieval-Augmented Generation (RAG)  
-  - Machine Learning for risk prediction  
-- **Vector Database:** ChromaDB / FAISS  
-- **Data Sources:** Verified medical datasets and documents
+Data Sources: Verified medical datasets
 
----
+🧩 System Overview
 
-## 🧩 System Architecture
+User Input → Multimodal Processing → RAG Retrieval → Agentic Reasoning + ML Risk Analysis → Personalized Guidance
 
-1. User uploads medical reports or enters symptoms  
-2. Multimodal processor extracts and understands data  
-3. RAG module retrieves relevant medical knowledge  
-4. Agentic AI reasons over patient history + current data  
-5. ML model performs risk analysis  
-6. Personalized, safe medical guidance is delivered  
+🎯 Use Cases
 
----
+Understanding lab reports & prescriptions
 
-## 🎯 Use Cases
+Chronic disease monitoring
 
-- Patients understanding lab reports and prescriptions  
-- Chronic disease monitoring with history awareness  
-- Early risk alerts based on symptoms and trends  
-- General health queries with reliable medical context  
+Early health risk alerts
 
----
-
-## ⚖️ Ethical Considerations
-
-- Not a replacement for licensed medical professionals  
-- Data privacy and security are prioritized  
-- Transparent AI responses with medical disclaimers  
-
----
-
-## 📈 Future Enhancements
-
-- Voice-based interaction  
-- Integration with wearable health devices  
-- Hospital and doctor recommendation system  
-- Multilingual support for regional languages  
-
----
-
-## 👨‍💻 Team & Contributions
-
-Contributions are welcome!  
-Feel free to fork this repository, submit issues, or open pull requests.
-
----
-
-## 🙌 Acknowledgements
-
-Inspired by real-world healthcare challenges and advancements in **Agentic AI**, **Generative AI**, and **Medical AI Systems**.
+Reliable medical information access
