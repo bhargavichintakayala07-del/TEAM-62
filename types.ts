@@ -2,26 +2,37 @@ export interface Message {
   id: string;
   role: 'user' | 'model';
   text: string;
-  timestamp: Date;
-  attachment?: string; // Base64 string for images
-  isRiskAnalysis?: boolean;
+  timestamp: number;
+  type?: 'text' | 'analysis' | 'alert';
+  analysisData?: HealthRiskAnalysis;
 }
 
 export interface Reminder {
   id: string;
   title: string;
   time: string; // HH:mm format
-  type: 'medication' | 'appointment' | 'checkup';
+  days: string[]; // ['Mon', 'Tue', ...]
   active: boolean;
 }
 
-export interface HealthRiskProfile {
-  cardiovascular: number;
-  metabolic: number;
-  respiratory: number;
-  lifestyle: number;
-  overallScore: number;
+export interface HealthRiskAnalysis {
+  riskScore: number; // 0-100
   summary: string;
+  keyFindings: string[];
+  recommendations: string[];
+  vitalSigns?: {
+    name: string;
+    value: string;
+    status: 'Normal' | 'Warning' | 'Critical';
+  }[];
+}
+
+export enum ViewState {
+  DASHBOARD = 'DASHBOARD',
+  CHAT = 'CHAT',
+  REMINDERS = 'REMINDERS',
+  REPORTS = 'REPORTS',
+  DEVICES = 'DEVICES'
 }
 
 export interface UserProfile {
@@ -30,11 +41,14 @@ export interface UserProfile {
   conditions: string[];
 }
 
-export enum ViewState {
-  DASHBOARD = 'DASHBOARD',
-  CHAT = 'CHAT',
-  MEDICINE = 'MEDICINE',
-  REMEDY = 'REMEDY',
-  REMINDERS = 'REMINDERS',
-  DOCUMENTS = 'DOCUMENTS'
+export interface HealthStats {
+  heartRate: number;
+  steps: number;
+  sleepHours: number;
+  bloodPressure: string;
+  spo2: number;
+  temperature: number;
+  lastSynced: number;
+  source: string;
+  history: { name: string; bp: number; heartRate: number }[];
 }
