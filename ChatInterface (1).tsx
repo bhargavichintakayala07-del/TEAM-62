@@ -1,29 +1,64 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, ViewState } from '../types';
-import { Send, Image as ImageIcon, Loader2, Bot, User, X, Pill, Coffee, Activity } from 'lucide-react';
+import { Message, HealthStats } from '../types';
 import { sendMessageToGemini } from '../services/geminiService';
+import { Send, User, Bot, Upload, X, Loader2, Watch, Mic, MicOff, AlertCircle, HelpCircle, Globe } from 'lucide-react';
 
-interface ChatInterfaceProps {
-  messages: Message[];
-  onSendMessage: (msg: Message) => void;
-  isTyping: boolean;
-  setTyping: (typing: boolean) => void;
-  mode: ViewState;
-}
+const LANGUAGES = [
+  { code: 'en-US', label: 'English (US)' },
+  { code: 'en-GB', label: 'English (UK)' },
+  { code: 'es-ES', label: 'Español' },
+  { code: 'fr-FR', label: 'Français' },
+  { code: 'de-DE', label: 'Deutsch' },
+  { code: 'hi-IN', label: 'हिन्दी' },
+  { code: 'zh-CN', label: '中文' },
+  { code: 'ja-JP', label: '日本語' },
+];
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping, setTyping, mode }) => {
+export const ChatInterface: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      role: 'model',
+      text: "Hello! I'm Medico Assistant. I can help explain medical reports, check symptoms, or track your health history. How can I help you today?",
+      timestamp: Date.now(),
+    },
+  ]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [healthContext, setHealthContext] = useState<HealthStats | undefined>(undefined);
+  const [isListening, setIsListening] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [language, setLanguage] = useState('en-US');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages]);
+
+  // Load health context on mount
+  useEffect(() => {
+      const savedStats = localStorage.getItem('medico_health_data');
+      if (savedStats) {
+          setHealthContext(JSON.parse(savedStats));
+      }
+  }, []);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,235 +71,270 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
     }
   };
 
-  const clearImage = () => {
-    setSelectedImage(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      setPermissionError("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setPermissionError(null);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => prev + (prev && !prev.endsWith(' ') ? ' ' : '') + transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+      if (event.error === 'not-allowed') {
+        setPermissionError("Microphone access was denied. To use voice input, please click the lock icon in your browser address bar and allow Microphone access.");
+      } else if (event.error === 'no-speech') {
+        // Silent fail for no speech, user might just be thinking
+      } else {
+        setPermissionError("An error occurred with voice input. Please try again.");
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && !selectedImage) || isTyping) return;
-
-    let userText = input;
-    // Inject specific intent context if needed, but the System Instruction handles "When asked..." well.
-    // We can rely on user input naturally.
+    if ((!input.trim() && !selectedImage) || loading) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      text: userText,
-      timestamp: new Date(),
-      attachment: selectedImage || undefined
+      text: input,
+      timestamp: Date.now(),
     };
 
-    onSendMessage(userMsg);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
-    const currentImage = selectedImage; // Capture current image for the API call
-    setSelectedImage(null);
-    setTyping(true);
+    setLoading(true);
+    setPermissionError(null);
 
     try {
-      const imageBase64 = currentImage ? currentImage.split(',')[1] : undefined;
-      const responseText = await sendMessageToGemini(messages, userMsg.text, imageBase64);
+      // Convert history for API
+      const history = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+
+      // If there's an image, strip the prefix for the API
+      let imageBase64 = undefined;
+      if (selectedImage) {
+        imageBase64 = selectedImage.split(',')[1];
+      }
+
+      const responseText = await sendMessageToGemini(history, userMsg.text || (selectedImage ? "Analyze this image" : ""), imageBase64, healthContext);
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'model',
         text: responseText,
-        timestamp: new Date()
+        timestamp: Date.now(),
       };
-      onSendMessage(botMsg);
+
+      setMessages((prev) => [...prev, botMsg]);
     } catch (error) {
-      console.error(error);
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'model',
+        text: "I'm sorry, something went wrong. Please check your connection and try again.",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
     } finally {
-      setTyping(false);
+      setLoading(false);
+      setSelectedImage(null);
     }
   };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  // Custom UI Config based on Mode
-  const getUIConfig = () => {
-    switch (mode) {
-      case ViewState.MEDICINE:
-        return {
-          title: "Medicine Finder",
-          subtitle: "Safety & Usage Info",
-          icon: Pill,
-          placeholder: "Enter medicine name (e.g., Paracetamol)...",
-          welcomeTitle: "Medicine Information",
-          welcomeText: "Enter any medicine name to get details on usage, side effects, and precautions."
-        };
-      case ViewState.REMEDY:
-        return {
-          title: "Remedy Suggester",
-          subtitle: "Safe Home Remedies",
-          icon: Coffee,
-          placeholder: "Describe your problem (e.g., Sore throat)...",
-          welcomeTitle: "Natural Home Remedies",
-          welcomeText: "Feeling unwell? Tell me your symptoms for safe, natural home remedy suggestions."
-        };
-      default: // CHAT
-        return {
-          title: "Medico Companion",
-          subtitle: "Agentic AI • Powered by Gemini 2.5",
-          icon: Activity,
-          placeholder: "Type symptoms, ask questions, or upload reports...",
-          welcomeTitle: "Hello! I'm Medico.",
-          welcomeText: "Upload a lab report, ask about symptoms, or discuss your treatment plan. I'm here to guide you."
-        };
-    }
-  };
-
-  const config = getUIConfig();
-  const HeaderIcon = config.icon;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-             <HeaderIcon size={20} />
+    <div className="flex flex-col h-[calc(100vh-8rem)] bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      {/* Header Context Indicator */}
+      {healthContext && (
+          <div className="bg-teal-50 px-4 py-2 border-b border-teal-100 flex items-center justify-between text-xs text-teal-700">
+              <div className="flex items-center">
+                  <Watch className="w-3 h-3 mr-1" />
+                  <span>Syncing with {healthContext.source}</span>
+              </div>
+              <span>HR: {healthContext.heartRate} bpm • Steps: {healthContext.steps}</span>
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">{config.title}</h2>
-            <p className="text-xs text-slate-500">{config.subtitle}</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-60">
-            <Bot size={64} className="mb-4 text-emerald-300" />
-            <p className="text-center text-lg font-medium">{config.welcomeTitle}</p>
-            <p className="text-center text-sm max-w-md mt-2">
-              {config.welcomeText}
-            </p>
-          </div>
-        )}
-
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div className={`flex max-w-[85%] md:max-w-[70%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-emerald-500 text-white'}`}>
-                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            <div className={`flex max-w-[85%] lg:max-w-[70%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+                msg.role === 'user' ? 'bg-indigo-100 ml-3' : 'bg-teal-100 mr-3'
+              }`}>
+                {msg.role === 'user' ? <User className="w-5 h-5 text-indigo-600" /> : <Bot className="w-5 h-5 text-teal-600" />}
               </div>
-
-              <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div
-                  className={`p-4 rounded-2xl shadow-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
-                      ? 'bg-slate-800 text-white rounded-tr-none'
-                      : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
-                  }`}
-                >
-                  {msg.attachment && (
-                    <div className="mb-3">
-                       <img src={msg.attachment} alt="Upload" className="max-w-full h-auto rounded-lg border border-white/20" style={{ maxHeight: '200px' }} />
-                    </div>
-                  )}
-                  {msg.text}
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 px-1">
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+              <div className={`p-4 rounded-2xl shadow-sm whitespace-pre-wrap leading-relaxed ${
+                msg.role === 'user' 
+                  ? 'bg-indigo-600 text-white rounded-tr-none' 
+                  : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-tl-none'
+              }`}>
+                 {msg.role === 'model' ? (
+                     <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />') }} />
+                 ) : (
+                    msg.text
+                 )}
               </div>
-
             </div>
           </div>
         ))}
-
-        {isTyping && (
-          <div className="flex justify-start w-full">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                <Bot size={16} />
-              </div>
-              <div className="bg-white border border-slate-200 p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin text-emerald-500" />
-                <span className="text-sm text-slate-500">Processing...</span>
-              </div>
-            </div>
-          </div>
+        {loading && (
+           <div className="flex justify-start">
+             <div className="flex max-w-[70%] flex-row">
+                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-teal-100 mr-3 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-teal-600" />
+                </div>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-none flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                </div>
+             </div>
+           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-slate-200">
-        {selectedImage && (
-          <div className="mb-3 flex items-start">
-            <div className="relative inline-block">
-              <img src={selectedImage} alt="Preview" className="h-20 w-auto rounded-lg border border-slate-200 shadow-sm" />
-              <button 
-                onClick={clearImage}
-                className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 hover:bg-rose-600 transition"
-              >
-                <X size={12} />
-              </button>
+      <div className="p-4 bg-white border-t border-slate-100">
+        {permissionError && (
+          <div className="mb-3 flex items-start bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-100 animate-fade-in">
+            <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+                <p className="font-semibold">Microphone Access Required</p>
+                <p className="mt-1 text-red-600">{permissionError}</p>
             </div>
+            <button onClick={() => setPermissionError(null)} className="ml-2 text-red-400 hover:text-red-600">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
-        
-        <div className="flex items-end gap-3 max-w-4xl mx-auto">
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
+
+        {selectedImage && (
+            <div className="mb-3 flex items-center bg-slate-100 w-fit p-2 rounded-lg">
+                <span className="text-xs text-slate-600 mr-2">Image attached</span>
+                <button onClick={() => setSelectedImage(null)} className="text-slate-400 hover:text-red-500">
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+        )}
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="p-3 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors"
+            title="Upload Image"
+          >
+            <Upload className="w-5 h-5" />
+          </button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*" 
             onChange={handleImageSelect}
-            className="hidden"
           />
-          {mode === ViewState.CHAT && (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-              title="Upload Medical Report"
-            >
-              <ImageIcon size={24} />
-            </button>
-          )}
           
-          <div className="flex-1 bg-slate-100 rounded-xl flex items-center px-4 py-2 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:bg-white border border-transparent focus-within:border-emerald-200 transition-all">
-            <textarea
+          <div className="relative group" title="Select Input Language">
+            <select
+                value={language}
+                onChange={(e) => {
+                    setLanguage(e.target.value);
+                    if (isListening) {
+                        recognitionRef.current?.stop();
+                        setIsListening(false);
+                    }
+                }}
+                className="w-full h-full absolute opacity-0 cursor-pointer z-10"
+            >
+                {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>{lang.label}</option>
+                ))}
+            </select>
+             <div className="p-3 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors flex flex-col items-center justify-center min-w-[3rem]">
+                 <Globe className="w-5 h-5" />
+                 <span className="text-[10px] font-bold mt-0.5 text-slate-500">{language.split('-')[0].toUpperCase()}</span>
+             </div>
+             {/* Tooltip */}
+             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">
+                Change Language
+             </div>
+          </div>
+          
+          <button 
+            onClick={toggleListening}
+            className={`p-3 rounded-xl transition-all duration-300 relative group ${
+              isListening 
+                ? 'bg-red-50 text-red-600 animate-pulse ring-2 ring-red-100' 
+                : 'text-slate-400 hover:text-teal-600 hover:bg-teal-50'
+            }`}
+            title="Voice Input (Dictation)"
+          >
+            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            
+            {/* Tooltip for functionality explanation */}
+            {!isListening && (
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-32 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">
+                    Click to dictate
+                </div>
+            )}
+          </button>
+
+          <div className="flex-1 relative">
+            <input
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={config.placeholder}
-              className="w-full bg-transparent border-none focus:ring-0 outline-none resize-none text-slate-700 placeholder:text-slate-400 max-h-32 py-2"
-              rows={1}
-              style={{ minHeight: '44px' }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder={isListening ? "Listening... (Speak clearly)" : "Describe your symptoms..."}
+              className={`w-full pl-4 pr-12 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-slate-700 placeholder-slate-400 transition-all ${
+                  isListening ? 'border-red-200 ring-red-100 ring-2' : 'border-slate-200 focus:ring-teal-500'
+              }`}
             />
           </div>
 
           <button
             onClick={handleSend}
-            disabled={(!input.trim() && !selectedImage) || isTyping}
-            className={`p-3 rounded-xl flex items-center justify-center transition-all ${
-              (!input.trim() && !selectedImage) || isTyping
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200'
-            }`}
+            disabled={loading || (!input && !selectedImage)}
+            className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            {isTyping ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} />}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </div>
-        <p className="text-center text-[10px] text-slate-400 mt-2">
-          Medico Assistant is an AI tool. Information provided is for guidance only, not a medical diagnosis.
-        </p>
       </div>
     </div>
   );
 };
-
-export default ChatInterface;
