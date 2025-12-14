@@ -1,155 +1,137 @@
 import React, { useState, useEffect } from 'react';
 import { Reminder } from '../types';
-import { Plus, Trash2, Clock, Calendar, CheckCircle, Circle, Pill } from 'lucide-react';
-import { storageService } from '../services/storageService';
+import { Plus, Bell, Trash2, Clock, Calendar } from 'lucide-react';
 
-interface RemindersProps {
-  userEmail: string;
-}
+export const Reminders: React.FC = () => {
+  const [reminders, setReminders] = useState<Reminder[]>(() => {
+      const saved = localStorage.getItem('medico_reminders');
+      return saved ? JSON.parse(saved) : [
+          { id: '1', title: 'Metformin 500mg', time: '09:00', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], active: true },
+          { id: '2', title: 'Vitamin D', time: '20:00', days: ['Mon', 'Thu'], active: true },
+      ];
+  });
+  
+  const [newReminder, setNewReminder] = useState<Partial<Reminder>>({
+      title: '',
+      time: '',
+      days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  });
 
-const Reminders: React.FC<RemindersProps> = ({ userEmail }) => {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newTime, setNewTime] = useState('');
-  const [newType, setNewType] = useState<Reminder['type']>('medication');
+  const [isAdding, setIsAdding] = useState(false);
 
-  // Load from storage service on mount or user change
   useEffect(() => {
-    if (userEmail) {
-      const saved = storageService.getReminders(userEmail);
-      if (saved.length > 0) {
-        setReminders(saved);
-      } else {
-        // Default sample data only if completely empty (first time)
-        // Check if we want to give default data or just empty. 
-        // For a new user, getting empty is probably better, but let's keep one sample if desired.
-        // Actually, let's start fresh for new users to be clean.
-        setReminders([]); 
-      }
-    }
-  }, [userEmail]);
-
-  // Save to storage service whenever reminders change
-  useEffect(() => {
-    if (userEmail) {
-      storageService.saveReminders(userEmail, reminders);
-    }
-  }, [reminders, userEmail]);
+    localStorage.setItem('medico_reminders', JSON.stringify(reminders));
+  }, [reminders]);
 
   const addReminder = () => {
-    if (!newTitle || !newTime) return;
+    if (!newReminder.title || !newReminder.time) return;
+    
     const reminder: Reminder = {
       id: Date.now().toString(),
-      title: newTitle,
-      time: newTime,
-      type: newType,
+      title: newReminder.title,
+      time: newReminder.time,
+      days: newReminder.days || [],
       active: true
     };
+    
     setReminders([...reminders, reminder]);
-    setNewTitle('');
-    setNewTime('');
-    setShowAdd(false);
-  };
-
-  const toggleActive = (id: string) => {
-    setReminders(reminders.map(r => r.id === id ? { ...r, active: !r.active } : r));
+    setNewReminder({ title: '', time: '', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] });
+    setIsAdding(false);
   };
 
   const deleteReminder = (id: string) => {
     setReminders(reminders.filter(r => r.id !== id));
   };
 
+  const toggleActive = (id: string) => {
+    setReminders(reminders.map(r => r.id === id ? { ...r, active: !r.active } : r));
+  };
+
   return (
-    <div className="p-6 md:p-10 h-full overflow-y-auto bg-slate-50">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Health Reminders</h1>
-          <p className="text-slate-500">Never miss a medication or appointment.</p>
-        </div>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-colors shadow-sm"
-        >
-          <Plus size={20} />
-          <span>Add New</span>
-        </button>
-      </div>
-
-      {showAdd && (
-        <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-lg mb-8 animate-fade-in-down">
-          <h3 className="font-semibold text-slate-800 mb-4">Create Reminder</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <input
-              type="text"
-              placeholder="Reminder Title (e.g., Aspirin)"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-            <input
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              className="border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-            <select
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as Reminder['type'])}
-              className="border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
-            >
-              <option value="medication">Medication</option>
-              <option value="appointment">Appointment</option>
-              <option value="checkup">Routine Checkup</option>
-            </select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-lg">Cancel</button>
-            <button onClick={addReminder} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Save Reminder</button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {reminders.length === 0 && (
-          <div className="text-center py-20 text-slate-400">
-            <Calendar size={48} className="mx-auto mb-4 opacity-50" />
-            <p>No reminders set yet. Add one above.</p>
-          </div>
-        )}
-        
-        {reminders.map((reminder) => (
-          <div key={reminder.id} className={`bg-white p-5 rounded-xl border ${reminder.active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-75'} shadow-sm flex items-center justify-between group transition-all`}>
-            <div className="flex items-center gap-4">
-              <button onClick={() => toggleActive(reminder.id)} className={`text-2xl ${reminder.active ? 'text-emerald-500' : 'text-slate-300'}`}>
-                 {reminder.active ? <CheckCircle size={24} /> : <Circle size={24} />}
-              </button>
-              
-              <div className={`p-3 rounded-lg ${
-                reminder.type === 'medication' ? 'bg-blue-50 text-blue-500' : 
-                reminder.type === 'appointment' ? 'bg-purple-50 text-purple-500' : 'bg-orange-50 text-orange-500'
-              }`}>
-                {reminder.type === 'medication' ? <Pill size={20} /> : <Calendar size={20} />}
-              </div>
-
-              <div>
-                <h4 className={`font-semibold ${reminder.active ? 'text-slate-800' : 'text-slate-500 line-through'}`}>{reminder.title}</h4>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Clock size={14} />
-                  <span>{reminder.time}</span>
-                  <span className="capitalize px-2 py-0.5 bg-slate-100 rounded text-xs">{reminder.type}</span>
-                </div>
-              </div>
+    <div className="max-w-4xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+            <div>
+                 <h2 className="text-2xl font-bold text-slate-800">Medication Reminders</h2>
+                 <p className="text-slate-500">Track your daily intake and schedules.</p>
             </div>
-
-            <button onClick={() => deleteReminder(reminder.id)} className="text-slate-300 hover:text-rose-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Trash2 size={20} />
+            <button 
+                onClick={() => setIsAdding(!isAdding)}
+                className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors shadow-sm"
+            >
+                <Plus className="w-5 h-5 mr-2" />
+                Add New
             </button>
-          </div>
-        ))}
-      </div>
+        </div>
+
+        {isAdding && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 animate-fade-in">
+                <h3 className="text-lg font-semibold mb-4 text-slate-700">New Reminder</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Medication Name</label>
+                        <input 
+                            type="text" 
+                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                            placeholder="e.g. Aspirin"
+                            value={newReminder.title}
+                            onChange={(e) => setNewReminder({...newReminder, title: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Time</label>
+                        <input 
+                            type="time" 
+                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                            value={newReminder.time}
+                            onChange={(e) => setNewReminder({...newReminder, time: e.target.value})}
+                        />
+                    </div>
+                </div>
+                <div className="flex justify-end space-x-3">
+                    <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button onClick={addReminder} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Save Reminder</button>
+                </div>
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4">
+            {reminders.map((reminder) => (
+                <div key={reminder.id} className={`bg-white p-4 rounded-xl shadow-sm border ${reminder.active ? 'border-l-4 border-l-teal-500 border-slate-100' : 'border-slate-100 border-l-4 border-l-slate-300 opacity-70'} flex flex-col sm:flex-row sm:items-center justify-between transition-all`}>
+                    <div className="flex items-start sm:items-center mb-4 sm:mb-0">
+                        <div className={`p-3 rounded-full mr-4 ${reminder.active ? 'bg-teal-50 text-teal-600' : 'bg-slate-100 text-slate-400'}`}>
+                            <Bell className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className={`font-bold text-lg ${reminder.active ? 'text-slate-800' : 'text-slate-500'}`}>{reminder.title}</h3>
+                            <div className="flex items-center text-sm text-slate-500 mt-1 space-x-4">
+                                <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {reminder.time}</span>
+                                <span className="flex items-center"><Calendar className="w-3 h-3 mr-1" /> {reminder.days.length === 7 ? 'Everyday' : reminder.days.join(', ')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 justify-end">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={reminder.active} onChange={() => toggleActive(reminder.id)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        </label>
+                        <button onClick={() => deleteReminder(reminder.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            ))}
+            
+            {reminders.length === 0 && (
+                <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                        <Bell className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-slate-700">No reminders yet</h3>
+                    <p className="text-slate-500 mt-2">Add a medication reminder to stay on track.</p>
+                </div>
+            )}
+        </div>
     </div>
   );
 };
-
-export default Reminders;
