@@ -1,150 +1,199 @@
-import React from 'react';
-import { HealthRiskProfile } from '../types';
-import { 
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip
-} from 'recharts';
-import { Heart, Activity, Wind, Flame, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ViewState, HealthStats } from '../types';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Activity, Heart, Thermometer, Droplets, AlertCircle, ArrowRight, Watch } from 'lucide-react';
 
 interface DashboardProps {
-  riskProfile: HealthRiskProfile;
+    setView: (view: ViewState) => void;
 }
 
-const MetricCard: React.FC<{ 
-  title: string; 
-  value: number; 
-  icon: React.ElementType; 
-  color: string; 
-  subtext: string 
-}> = ({ title, value, icon: Icon, color, subtext }) => (
-  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-    <div className="flex justify-between items-start mb-4">
-      <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
-        <Icon size={24} className={color.replace('bg-', 'text-')} />
-      </div>
-      <span className={`text-2xl font-bold ${value > 50 ? 'text-amber-500' : 'text-slate-700'}`}>
-        {value}
-        <span className="text-sm text-slate-400 font-normal">/100</span>
-      </span>
-    </div>
-    <h3 className="text-slate-500 font-medium text-sm">{title}</h3>
-    <p className="text-slate-400 text-xs mt-1">{subtext}</p>
-  </div>
-);
+const defaultMockData = [
+  { name: 'Mon', bp: 120, heartRate: 72 },
+  { name: 'Tue', bp: 118, heartRate: 75 },
+  { name: 'Wed', bp: 122, heartRate: 71 },
+  { name: 'Thu', bp: 125, heartRate: 78 },
+  { name: 'Fri', bp: 119, heartRate: 74 },
+  { name: 'Sat', bp: 121, heartRate: 73 },
+  { name: 'Sun', bp: 120, heartRate: 72 },
+];
 
-const Dashboard: React.FC<DashboardProps> = ({ riskProfile }) => {
-  const radarData = [
-    { subject: 'Cardio', A: riskProfile.cardiovascular, fullMark: 100 },
-    { subject: 'Metabolic', A: riskProfile.metabolic, fullMark: 100 },
-    { subject: 'Respiratory', A: riskProfile.respiratory, fullMark: 100 },
-    { subject: 'Lifestyle', A: riskProfile.lifestyle, fullMark: 100 },
-    { subject: 'Immunity', A: 100 - riskProfile.overallScore, fullMark: 100 }, // Inverse for visual balance
-  ];
+export const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
+  const [healthData, setHealthData] = useState<HealthStats | null>(null);
+  const [chartData, setChartData] = useState(defaultMockData);
 
-  // Simulated trend data
-  const trendData = [
-    { name: 'Mon', score: 20 },
-    { name: 'Tue', score: 22 },
-    { name: 'Wed', score: 18 },
-    { name: 'Thu', score: 25 },
-    { name: 'Fri', score: riskProfile.overallScore },
-  ];
+  useEffect(() => {
+      const savedStats = localStorage.getItem('medico_health_data');
+      if (savedStats) {
+          const parsed: HealthStats = JSON.parse(savedStats);
+          setHealthData(parsed);
+          if (parsed.history && parsed.history.length > 0) {
+              setChartData(parsed.history);
+          }
+      }
+  }, []);
 
   return (
-    <div className="p-6 md:p-10 h-full overflow-y-auto bg-slate-50">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">Hello, Patient</h1>
-        <p className="text-slate-500">Here is your daily health overview based on your recent check-ups.</p>
-        
-        {riskProfile.overallScore > 50 && (
-          <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center gap-3">
-            <AlertTriangle size={20} />
-            <span className="text-sm font-medium">Action Required: Your health risk analysis suggests attention is needed for Metabolic factors.</span>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Disclaimer */}
+      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <AlertCircle className="h-5 w-5 text-blue-400" />
           </div>
-        )}
-      </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard 
-          title="Cardiovascular Risk" 
-          value={riskProfile.cardiovascular} 
-          icon={Heart} 
-          color="bg-rose-500" 
-          subtext="Based on BP & HR trends"
-        />
-        <MetricCard 
-          title="Metabolic Score" 
-          value={riskProfile.metabolic} 
-          icon={Flame} 
-          color="bg-orange-500" 
-          subtext="Sugar & BMI correlation"
-        />
-        <MetricCard 
-          title="Respiratory Health" 
-          value={riskProfile.respiratory} 
-          icon={Wind} 
-          color="bg-cyan-500" 
-          subtext="Breathing patterns"
-        />
-        <MetricCard 
-          title="Overall Risk Score" 
-          value={riskProfile.overallScore} 
-          icon={Activity} 
-          color="bg-emerald-500" 
-          subtext={riskProfile.summary}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-6">Risk Factor Analysis</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false}/>
-                <Radar
-                  name="Risk"
-                  dataKey="A"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fill="#10b981"
-                  fillOpacity={0.3}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+          <div className="ml-3">
+            <p className="text-sm text-blue-700">
+              Medico Assistant is an AI tool for informational purposes only. Always consult a professional doctor for medical diagnosis and treatment.
+            </p>
           </div>
         </div>
+      </div>
 
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="font-bold text-slate-800 mb-6">Health Score Trend (7 Days)</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={trendData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                />
-                <Area type="monotone" dataKey="score" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
-              </AreaChart>
-            </ResponsiveContainer>
+      {/* Sync Status Banner */}
+      {healthData && (
+          <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl flex items-center justify-between">
+              <div className="flex items-center">
+                  <Watch className="w-5 h-5 text-teal-600 mr-3" />
+                  <span className="text-teal-800 font-medium">Syncing with {healthData.source}</span>
+              </div>
+              <span className="text-xs text-teal-600 bg-white px-3 py-1 rounded-full border border-teal-100">
+                  Last updated: {new Date(healthData.lastSynced).toLocaleTimeString()}
+              </span>
           </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 bg-red-50 rounded-lg">
+              <Heart className="w-6 h-6 text-red-500" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">Today</span>
+          </div>
+          <h3 className="text-3xl font-bold text-slate-800">
+            {healthData ? healthData.heartRate : 72} <span className="text-sm font-normal text-slate-500">bpm</span>
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">Heart Rate (Resting)</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Activity className="w-6 h-6 text-blue-500" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">Avg</span>
+          </div>
+          <h3 className="text-3xl font-bold text-slate-800">
+             {healthData ? healthData.bloodPressure : '120/80'}
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">Blood Pressure</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <Thermometer className="w-6 h-6 text-orange-500" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">Current</span>
+          </div>
+          <h3 className="text-3xl font-bold text-slate-800">
+             {healthData ? healthData.temperature.toFixed(1) : 98.6} <span className="text-sm font-normal text-slate-500">°F</span>
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">Body Temperature</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 bg-cyan-50 rounded-lg">
+              <Droplets className="w-6 h-6 text-cyan-500" />
+            </div>
+            <span className="text-xs font-medium text-slate-400">Latest</span>
+          </div>
+          <h3 className="text-3xl font-bold text-slate-800">
+             {healthData ? healthData.spo2 : 98} <span className="text-sm font-normal text-slate-500">%</span>
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">SpO2 Levels</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Chart */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-6">Vitals History</h3>
+            <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                        <defs>
+                            <linearGradient id="colorBp" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#0d9488" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                        <Tooltip 
+                            contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} 
+                        />
+                        <Area type="monotone" dataKey="bp" stroke="#0d9488" strokeWidth={2} fillOpacity={1} fill="url(#colorBp)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h3>
+                <p className="text-slate-500 mb-6">Select an action to get started with your health assistant.</p>
+                
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => setView(ViewState.CHAT)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 rounded-xl transition-all group"
+                    >
+                        <div className="flex items-center">
+                            <div className="bg-white p-2 rounded-lg shadow-sm">
+                                <Activity className="w-5 h-5 text-teal-600" />
+                            </div>
+                            <span className="ml-3 font-medium text-slate-700 group-hover:text-teal-700">Check Symptoms</span>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-teal-500" />
+                    </button>
+
+                    <button 
+                         onClick={() => setView(ViewState.REPORTS)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 rounded-xl transition-all group"
+                    >
+                        <div className="flex items-center">
+                            <div className="bg-white p-2 rounded-lg shadow-sm">
+                                <Activity className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <span className="ml-3 font-medium text-slate-700 group-hover:text-blue-700">Analyze Report</span>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500" />
+                    </button>
+                    
+                     <button 
+                        onClick={() => setView(ViewState.DEVICES)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 rounded-xl transition-all group"
+                    >
+                        <div className="flex items-center">
+                            <div className="bg-white p-2 rounded-lg shadow-sm">
+                                <Watch className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <span className="ml-3 font-medium text-slate-700 group-hover:text-purple-700">Connect Device</span>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-purple-500" />
+                    </button>
+                </div>
+            </div>
+            <div className="mt-6 p-4 bg-indigo-50 rounded-xl">
+                <p className="text-sm font-medium text-indigo-900">Next Reminder</p>
+                <p className="text-indigo-700 text-xs mt-1">Metformin 500mg • 2:00 PM</p>
+            </div>
         </div>
       </div>
     </div>
   );
 };
-
-export default Dashboard;
